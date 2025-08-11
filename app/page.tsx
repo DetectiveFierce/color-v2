@@ -12,7 +12,7 @@ import PaletteListSection from "@/components/layout/palette-list-section"
 import PaletteEditorSection from "@/components/layout/palette-editor-section"
 import type { ColorFormat } from "@/components/shared/format-selector"
 
-export default function DashboardPage() {
+export default function Page() {
   const { toast } = useToast()
   const [exportOpen, setExportOpen] = useState<boolean>(false)
   const [mobileNavOpen, setMobileNavOpen] = useState<boolean>(false)
@@ -125,7 +125,6 @@ export default function DashboardPage() {
           }
         } : undefined}
         onAddPalette={addPalette}
-        viewMode="dashboard"
       />
 
       <ExportDialog

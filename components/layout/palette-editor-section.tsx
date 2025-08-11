@@ -16,7 +16,6 @@ interface PaletteEditorSectionProps {
     onExportJson: () => void
     onExportUpdatedCss?: () => void
     onAddPalette: () => void
-    viewMode?: "dashboard" | "picker" | "shades"
 }
 
 export default function PaletteEditorSection({
@@ -28,7 +27,6 @@ export default function PaletteEditorSection({
     onExportJson,
     onExportUpdatedCss,
     onAddPalette,
-    viewMode = "dashboard",
 }: PaletteEditorSectionProps) {
     return (
         <div className="mx-auto max-w-[1400px] px-6 md:px-8 pb-8">
@@ -43,7 +41,6 @@ export default function PaletteEditorSection({
                         onExportCss={onExportCss}
                         onExportJson={onExportJson}
                         onExportUpdatedCss={onExportUpdatedCss}
-                        viewMode={viewMode}
                     />
                 ) : (
                     <Card className="shadow-elevated border-0 bg-card/90 backdrop-blur-sm rounded-xl h-full flex items-center justify-center">

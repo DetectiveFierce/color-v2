@@ -37,14 +37,12 @@ type EmbeddedPickerProps = {
 export function EmbeddedPicker({ palette, colorFormat = "hex", selectedColorId, onColorSelect, onColorIdSelect, onAddColor, onDeleteColor }: EmbeddedPickerProps) {
     const { toast } = useToast()
 
-    // Get the selected color's hex value
+    // Get the selected color's hex value - this is the source of truth
     const selectedColor = palette.baseColors.find(c => c.id === selectedColorId)
     const selectedHex = selectedColor?.baseHex || "#4f46e5"
 
-    // Base color state with optimized updates
-    const [hex, setHex] = useState<string>(selectedHex)
-    const animationFrameRef = useRef<number | undefined>(undefined)
-    const lastUpdateRef = useRef<number>(0)
+    // Use the selected color's hex as the source of truth, no internal state
+    const hex = selectedHex
 
     // Memoize expensive color conversions
     const rgb = useMemo(() => hexToRgb(hex), [hex])
@@ -55,10 +53,8 @@ export function EmbeddedPicker({ palette, colorFormat = "hex", selectedColorId, 
     const [s, setS] = useState<number>(hsv.s)
     const [v, setV] = useState<number>(hsv.v)
 
-    // Update hex when selected color changes
-    useEffect(() => {
-        setHex(selectedHex)
-    }, [selectedHex])
+    const animationFrameRef = useRef<number | undefined>(undefined)
+    const lastUpdateRef = useRef<number>(0)
 
     // Keep HSV in sync when hex changes externally
     useEffect(() => {
@@ -88,7 +84,6 @@ export function EmbeddedPicker({ palette, colorFormat = "hex", selectedColorId, 
         throttledUpdate(() => {
             const { r, g, b } = hsvToRgb(newH, newS, newV)
             const newHex = rgbToHex(r, g, b)
-            setHex(newHex)
             onColorSelect?.(newHex)
         })
     }, [throttledUpdate, onColorSelect])
@@ -97,7 +92,6 @@ export function EmbeddedPicker({ palette, colorFormat = "hex", selectedColorId, 
         throttledUpdate(() => {
             const { r, g, b } = hslToRgb(newH, newS, newL)
             const newHex = rgbToHex(r, g, b)
-            setHex(newHex)
             onColorSelect?.(newHex)
         })
     }, [throttledUpdate, onColorSelect])
@@ -105,7 +99,6 @@ export function EmbeddedPicker({ palette, colorFormat = "hex", selectedColorId, 
     const updateColorFromRGB = useCallback((newR: number, newG: number, newB: number) => {
         throttledUpdate(() => {
             const newHex = rgbToHex(newR, newG, newB)
-            setHex(newHex)
             onColorSelect?.(newHex)
         })
     }, [throttledUpdate, onColorSelect])
@@ -123,10 +116,10 @@ export function EmbeddedPicker({ palette, colorFormat = "hex", selectedColorId, 
     const handleHexInput = (val: string) => {
         try {
             const normalized = normalizeHex(val)
-            setHex(normalized)
             onColorSelect?.(normalized)
         } catch {
-            setHex(val)
+            // If normalization fails, still try to update with the raw value
+            onColorSelect?.(val)
         }
     }
 

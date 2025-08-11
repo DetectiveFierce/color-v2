@@ -65,6 +65,12 @@ export function usePaletteManager() {
 
             // Always save the updated palettes to ensure proper shade ordering
             saveAllPalettes(updatedPalettes)
+
+            // Show notification that palettes were updated
+            toast({
+                title: "Palettes updated",
+                description: "All palettes have been updated with proper shade ordering."
+            })
         }
     }, [toast])
 

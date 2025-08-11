@@ -1,6 +1,6 @@
 "use client"
 
-import { Plus, Upload, Palette as PaletteIcon, Share2, Layers, TrendingUp, Droplet } from 'lucide-react'
+import { Plus, Upload, Palette as PaletteIcon, Share2 } from 'lucide-react'
 import ColorSpectrumIcon from '@/components/shared/color-spectrum-icon'
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
