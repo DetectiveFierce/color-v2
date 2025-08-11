@@ -527,6 +527,68 @@
     }
   }
 
+  /* Add/Delete animations for list items */
+  @keyframes addExpand {
+    0% {
+      opacity: 0;
+      transform: scale(0.8) translateY(10px);
+    }
+
+    100% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  @keyframes deleteCondense {
+    0% {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+
+    100% {
+      opacity: 0;
+      transform: scale(0.8) translateY(-10px);
+    }
+  }
+
+  .animate-add-expand {
+    animation: addExpand 0.5s ease-out forwards;
+  }
+
+  .animate-delete-condense {
+    animation: deleteCondense 0.3s ease-in forwards;
+  }
+
+  /* Sortable drag and drop styles */
+  .sortable-ghost {
+    opacity: 0.5 !important;
+    transform: scale(0.95) !important;
+    transition: none !important;
+  }
+
+  .sortable-chosen {
+    transform: scale(1.02) !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+    transition: none !important;
+  }
+
+  .sortable-drag {
+    transform: rotate(5deg) !important;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04) !important;
+    transition: none !important;
+  }
+
+  /* Ensure sortable animations take precedence over custom animations */
+  .sortable-ghost.animate-add-expand,
+  .sortable-ghost.animate-delete-condense,
+  .sortable-chosen.animate-add-expand,
+  .sortable-chosen.animate-delete-condense,
+  .sortable-drag.animate-add-expand,
+  .sortable-drag.animate-delete-condense {
+    animation: none !important;
+  }
+
 
   /* Base color panel - light mode uses background color (#FDFDFE), dark mode uses background */
   .bg-base-panel {
@@ -608,4 +670,182 @@
     background: hsl(var(--muted));
     border-color: hsl(var(--input));
   }
+}
+
+/* Custom scrollbar styles */
+.palette-scroll-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.palette-scroll-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.palette-scroll-container::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+.palette-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
+}
+
+/* React Grid Layout custom styles */
+.react-grid-layout {
+  position: relative;
+  transition: height 200ms ease;
+}
+
+.react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top, width, height;
+  overflow: hidden;
+}
+
+.react-grid-item.cssTransforms {
+  transition-property: transform, width, height;
+}
+
+.react-grid-item.resizing {
+  z-index: 1;
+  will-change: width, height;
+}
+
+.react-grid-item.react-draggable-dragging {
+  transition: none;
+  z-index: 3;
+  will-change: transform;
+}
+
+.react-grid-item.react-grid-placeholder {
+  background: hsl(var(--primary) / 0.1);
+  border: 2px dashed hsl(var(--primary) / 0.3);
+  border-radius: 0.75rem;
+  transition-duration: 100ms;
+  z-index: 2;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+}
+
+/* Responsive grid layout styles */
+.react-grid-layout.react-grid-layout-responsive {
+  position: relative;
+  transition: height 200ms ease;
+}
+
+.react-grid-layout.react-grid-layout-responsive .react-grid-item {
+  transition: all 200ms ease;
+  transition-property: left, top, width, height;
+  overflow: hidden;
+}
+
+.react-grid-layout.react-grid-layout-responsive .react-grid-item.cssTransforms {
+  transition-property: transform, width, height;
+}
+
+.react-grid-layout.react-grid-layout-responsive .react-grid-item.resizing {
+  z-index: 1;
+  will-change: width, height;
+}
+
+.react-grid-layout.react-grid-layout-responsive .react-grid-item.react-draggable-dragging {
+  transition: none;
+  z-index: 3;
+  will-change: transform;
+}
+
+.react-grid-layout.react-grid-layout-responsive .react-grid-item.react-grid-placeholder {
+  background: hsl(var(--primary) / 0.1);
+  border: 2px dashed hsl(var(--primary) / 0.3);
+  border-radius: 0.75rem;
+  transition-duration: 100ms;
+  z-index: 2;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+}
+
+/* Grid item content styles */
+.react-grid-item>div {
+  height: 100%;
+  overflow: hidden;
+  padding: 0;
+  margin: 0;
+}
+
+/* Dashboard grid item styles */
+.dashboard-grid-item {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 hsl(var(--foreground) / 0.1), 0 1px 2px -1px hsl(var(--foreground) / 0.1);
+  transition: all 200ms ease;
+  height: 100%;
+  overflow: hidden;
+}
+
+.dashboard-grid-item:hover {
+  box-shadow: 0 4px 6px -1px hsl(var(--foreground) / 0.1), 0 2px 4px -2px hsl(var(--foreground) / 0.1);
+}
+
+.dashboard-grid-item.resizing {
+  box-shadow: 0 10px 15px -3px hsl(var(--foreground) / 0.1), 0 4px 6px -4px hsl(var(--foreground) / 0.1);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .react-grid-layout {
+    margin: 8px;
+  }
+
+  .react-grid-item {
+    margin-bottom: 8px;
+  }
+}
+
+/* Ensure content fits within grid containers */
+.react-grid-item .card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.react-grid-item .card-content {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+}
+
+.react-grid-item .card-header {
+  flex-shrink: 0;
+}
+
+/* Allow specific elements within cards to be scrollable */
+.react-grid-item .scrollable-content {
+  max-height: 200px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.react-grid-item .scrollable-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.react-grid-item .scrollable-content::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.react-grid-item .scrollable-content::-webkit-scrollbar-thumb {
+  background: hsl(var(--muted-foreground) / 0.3);
+  border-radius: 3px;
+}
+
+.react-grid-item .scrollable-content::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
 }

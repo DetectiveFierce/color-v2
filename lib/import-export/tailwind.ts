@@ -1,7 +1,6 @@
 "use client"
 
 import type { Palette } from "../core/types"
-import { SHADE_KEYS } from "../core/types"
 
 function slugify(input: string): string {
     return input.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
@@ -11,7 +10,7 @@ export function paletteToTailwindSnippet(p: Palette): string {
     const key = slugify(p.name)
     const colorBlocks = p.baseColors.map((baseColor) => {
         const colorKey = slugify(baseColor.name)
-        const pairs = SHADE_KEYS.map((k) => `      "${k}": "${baseColor.shades[k]}"`).join(",\n")
+        const pairs = baseColor.shades.map((shade) => `      "${shade.shade}": "${shade.hex}"`).join(",\n")
         return `  "${colorKey}": {
 ${pairs}
 }`

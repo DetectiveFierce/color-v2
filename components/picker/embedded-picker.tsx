@@ -15,7 +15,6 @@ import type { ColorFormat } from "@/components/shared/format-selector"
 import { rgbToHsv, hsvToRgb, clamp, generateHarmonies, generateTints, generateShadesOnly, generateTones } from "@/lib/picker/utils"
 import { SVPanel } from "@/components/picker/sv-panel"
 import { HueSlider, ChannelSlider } from "@/components/picker/sliders"
-import { ContrastTester } from "@/components/picker/contrast-tester"
 import { ColorList } from "@/components/picker/color-list"
 
 // Simple function to get contrast text color for swatches
@@ -28,18 +27,22 @@ function getContrastTextColor(hex: string): string {
 type EmbeddedPickerProps = {
     palette: Palette
     colorFormat?: ColorFormat
+    selectedColorId?: string
     onColorSelect?: (hex: string) => void
+    onColorIdSelect?: (colorId: string) => void
     onAddColor?: (color: BaseColor) => void
     onDeleteColor?: (colorSource: string) => void
 }
 
-export function EmbeddedPicker({ palette, colorFormat = "hex", onColorSelect, onAddColor, onDeleteColor }: EmbeddedPickerProps) {
+export function EmbeddedPicker({ palette, colorFormat = "hex", selectedColorId, onColorSelect, onColorIdSelect, onAddColor, onDeleteColor }: EmbeddedPickerProps) {
     const { toast } = useToast()
 
-
+    // Get the selected color's hex value
+    const selectedColor = palette.baseColors.find(c => c.id === selectedColorId)
+    const selectedHex = selectedColor?.baseHex || "#4f46e5"
 
     // Base color state with optimized updates
-    const [hex, setHex] = useState<string>("#4f46e5")
+    const [hex, setHex] = useState<string>(selectedHex)
     const animationFrameRef = useRef<number | undefined>(undefined)
     const lastUpdateRef = useRef<number>(0)
 
@@ -51,6 +54,11 @@ export function EmbeddedPicker({ palette, colorFormat = "hex", onColorSelect, on
     const [h, setH] = useState<number>(hsv.h)
     const [s, setS] = useState<number>(hsv.s)
     const [v, setV] = useState<number>(hsv.v)
+
+    // Update hex when selected color changes
+    useEffect(() => {
+        setHex(selectedHex)
+    }, [selectedHex])
 
     // Keep HSV in sync when hex changes externally
     useEffect(() => {
@@ -144,10 +152,10 @@ export function EmbeddedPicker({ palette, colorFormat = "hex", onColorSelect, on
             {/* Left side - Color list component */}
             <ColorList
                 palette={palette}
-                selectedHex={hex}
-                onColorSelect={(colorHex) => {
-                    setHex(colorHex)
-                    onColorSelect?.(colorHex)
+                selectedColorId={selectedColorId}
+                onColorSelect={(colorId) => {
+                    // When a color is selected from the list, update the selected color ID
+                    onColorIdSelect?.(colorId)
                 }}
                 onAddColor={onAddColor}
                 onDeleteColor={onDeleteColor}
@@ -453,8 +461,6 @@ export function EmbeddedPicker({ palette, colorFormat = "hex", onColorSelect, on
                         </div>
                     </CardContent>
                 </Card>
-
-                <ContrastTester baseHex={hex} />
             </div>
         </div>
     )

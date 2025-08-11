@@ -1,21 +1,27 @@
 "use client"
 
-import React, { useState, useEffect, useMemo } from "react"
+import React, { useState, useEffect, useMemo, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { Label } from "@/components/ui/label"
+import { useToast } from "@/hooks/use-toast"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Download, Copy, Plus, X, Pencil, RotateCcw, RotateCw, Droplet } from 'lucide-react'
-import { type Palette, type BaseColor, SHADE_KEYS } from "@/lib/core/types"
-import { ensureHashHex, generateShades, normalizeHex, generateRandomColor } from "@/lib/core/color"
-import { useToast } from "@/hooks/use-toast"
-import { paletteToTypeScriptTheme } from "@/lib/import-export/typescript"
-import { EmbeddedPicker } from "@/components/picker/embedded-picker"
+import { Download, Copy, Plus, X, Pencil, RotateCcw, RotateCw, Droplet, Layers, TrendingUp, Palette as PaletteIcon, Eye, Thermometer, BarChart3, Monitor } from 'lucide-react'
+import { type Palette, type BaseColor, type ShadeKey } from "@/lib/core/types"
+import { SHADE_KEYS } from "@/lib/core/types"
+import { generateShades } from "@/lib/core/color"
 import { formatColor } from "@/lib/core/color-formats"
 import type { ColorFormat } from "@/components/shared/format-selector"
+import { EmbeddedPicker } from "@/components/picker/embedded-picker"
+import { MockupPreviews } from "./mockup-previews"
+import { ContrastTester } from "./contrast-tester"
+import { ColorPsychologyPanel } from "./color-psychology-panel"
+import { AccessibilityPanel } from "./accessibility-panel"
+import { TemperaturePanel } from "./temperature-panel"
+import { ColorPicker } from "@/components/ui/color-picker"
 
 type Props = {
   palette: Palette
@@ -41,6 +47,14 @@ export default function PaletteEditor({
   const [isEditingTitle, setIsEditingTitle] = useState(false)
   const [history, setHistory] = useState<Palette[]>([palette])
   const [historyIndex, setHistoryIndex] = useState(0)
+  const [selectedColorId, setSelectedColorId] = useState<string>(palette.baseColors[0]?.id || "")
+
+  // Update selected color when palette changes
+  useEffect(() => {
+    if (palette.baseColors.length > 0) {
+      setSelectedColorId(palette.baseColors[0].id)
+    }
+  }, [palette.id, palette.baseColors])
 
   function commit(next: Palette) {
     setDraft(next)
@@ -58,12 +72,15 @@ export default function PaletteEditor({
   }
 
   function addBaseColor() {
-    const randomColor = generateRandomColor()
+    const randomColor = "#4f46e5"
     const newColor: BaseColor = {
       id: crypto.randomUUID(),
       name: `Color ${draft.baseColors.length + 1}`,
-      hex: randomColor,
-      shades: generateShades(randomColor),
+      baseHex: randomColor,
+      shades: SHADE_KEYS.map(key => ({
+        shade: parseInt(key),
+        hex: generateShades(randomColor)[key]
+      }))
     }
     commit({ ...draft, baseColors: [...draft.baseColors, newColor] })
   }
@@ -73,41 +90,14 @@ export default function PaletteEditor({
       toast({ title: "Cannot remove", description: "At least one base color is required.", variant: "destructive" })
       return
     }
-    const colorToDelete = draft.baseColors.find(c => c.id === id)
-    if (!colorToDelete) return
-
-    commit({ ...draft, baseColors: draft.baseColors.filter(c => c.id !== id) })
-
-    toast({
-      title: "Color removed",
-      description: "The base color was removed. Click to undo.",
-      onClick: () => {
-        commit({
-          ...draft,
-          baseColors: [...draft.baseColors.filter(c => c.id !== id), colorToDelete]
-        })
-        toast({
-          title: "Undone",
-          description: "The color was restored.",
-          duration: 2000
-        })
-      }
-    })
+    commit({ ...draft, baseColors: draft.baseColors.filter(bc => bc.id !== id) })
   }
 
   function updateBaseColor(id: string, updates: Partial<BaseColor>) {
-    const updatedColors = draft.baseColors.map(color => {
-      if (color.id === id) {
-        const updated = { ...color, ...updates }
-        // Regenerate shades if hex changed
-        if (updates.hex && updates.hex !== color.hex) {
-          updated.shades = generateShades(updates.hex)
-        }
-        return updated
-      }
-      return color
-    })
-    commit({ ...draft, baseColors: updatedColors })
+    const updatedBaseColors = draft.baseColors.map(bc =>
+      bc.id === id ? { ...bc, ...updates } : bc
+    )
+    commit({ ...draft, baseColors: updatedBaseColors })
   }
 
   function updateBaseColorName(id: string, name: string) {
@@ -115,11 +105,17 @@ export default function PaletteEditor({
   }
 
   function updateBaseColorHex(id: string, hex: string) {
-    const safe = ensureHashHex(hex)
-    updateBaseColor(id, { hex: safe })
+    const safe = hex.startsWith('#') ? hex : `#${hex}`
+    updateBaseColor(id, { baseHex: safe })
   }
 
-  function undo() {
+  function updateSelectedColorHex(hex: string) {
+    if (selectedColorId) {
+      updateBaseColorHex(selectedColorId, hex)
+    }
+  }
+
+  const undo = useCallback(() => {
     if (historyIndex > 0) {
       const newIndex = historyIndex - 1
       const previousState = history[newIndex]
@@ -127,9 +123,9 @@ export default function PaletteEditor({
       setHistoryIndex(newIndex)
       onChange({ ...previousState, updatedAt: Date.now() })
     }
-  }
+  }, [historyIndex, history, onChange])
 
-  function redo() {
+  const redo = useCallback(() => {
     if (historyIndex < history.length - 1) {
       const newIndex = historyIndex + 1
       const nextState = history[newIndex]
@@ -137,29 +133,102 @@ export default function PaletteEditor({
       setHistoryIndex(newIndex)
       onChange({ ...nextState, updatedAt: Date.now() })
     }
-  }
+  }, [historyIndex, history, onChange])
 
-  // Derived: TypeScript theme snippet and basic analysis
-  const tsThemeText = useMemo(() => paletteToTypeScriptTheme(draft), [draft])
+  // Derived: TypeScript theme snippet and enhanced analysis
+  const tsThemeText = useMemo(() => {
+    const baseColors = draft.baseColors.map(bc => ({
+      name: bc.name,
+      baseHex: bc.baseHex,
+      shades: bc.shades.map(shade => ({
+        shade: shade.shade,
+        hex: shade.hex
+      }))
+    }))
+    return `export const palette = {
+  baseColors: [
+    ${baseColors.map(bc => `{
+      name: "${bc.name}",
+      baseHex: "${bc.baseHex}",
+      shades: [
+        ${bc.shades.map(shade => `{
+          shade: ${shade.shade},
+          hex: "${shade.hex}"
+        }`).join(",")}
+      ]
+    }`).join(",")}
+  ]
+}`
+  }, [draft])
+
   const analysis = useMemo(() => {
     const totalBaseColors = draft.baseColors.length
-    const totalShades = draft.baseColors.reduce((acc, bc) => acc + Object.keys(bc.shades).length, 0)
+    const totalShades = draft.baseColors.reduce((acc, bc) => acc + bc.shades.length, 0)
     const seen = new Map<string, { count: number, entries: { base: string, shade: string }[] }>()
+
+    // Color distribution analysis
+    const colorDistribution = {
+      light: 0,    // 50-400
+      medium: 0,   // 500-600
+      dark: 0      // 700-950
+    }
+
+    // Brightness analysis
+    const brightnessLevels = {
+      veryLight: 0,  // 0-20% lightness
+      light: 0,      // 20-40% lightness
+      medium: 0,     // 40-60% lightness
+      dark: 0,       // 60-80% lightness
+      veryDark: 0    // 80-100% lightness
+    }
+
     draft.baseColors.forEach(bc => {
-      SHADE_KEYS.forEach(k => {
-        const hex = normalizeHex(bc.shades[k])
+      bc.shades.forEach(shade => {
+        const hex = shade.hex
         const rec = seen.get(hex) || { count: 0, entries: [] }
         rec.count += 1
-        rec.entries.push({ base: bc.name, shade: k })
+        rec.entries.push({ base: bc.name, shade: shade.shade.toString() })
         seen.set(hex, rec)
+
+        // Analyze shade distribution
+        if (shade.shade <= 400) colorDistribution.light++
+        else if (shade.shade <= 600) colorDistribution.medium++
+        else colorDistribution.dark++
+
+        // Analyze brightness (simplified - could use actual HSL conversion)
+        const shadeIndex = SHADE_KEYS.indexOf(shade.shade.toString() as ShadeKey)
+        if (shadeIndex <= 2) brightnessLevels.veryLight++
+        else if (shadeIndex <= 4) brightnessLevels.light++
+        else if (shadeIndex <= 6) brightnessLevels.medium++
+        else if (shadeIndex <= 8) brightnessLevels.dark++
+        else brightnessLevels.veryDark++
       })
     })
+
     const duplicates = Array.from(seen.entries())
       .filter(([, rec]) => rec.count > 1)
       .map(([hex, rec]) => ({ hex, count: rec.count, entries: rec.entries }))
       .sort((a, b) => b.count - a.count)
+
     const uniqueHexes = seen.size
-    return { totalBaseColors, totalShades, uniqueHexes, duplicates }
+    const efficiency = totalShades > 0 ? Math.round((uniqueHexes / totalShades) * 100) : 0
+
+    // Palette balance score (0-100)
+    const balanceScore = Math.min(100, Math.round(
+      (Math.min(colorDistribution.light, colorDistribution.medium, colorDistribution.dark) /
+        Math.max(colorDistribution.light, colorDistribution.medium, colorDistribution.dark)) * 100
+    ))
+
+    return {
+      totalBaseColors,
+      totalShades,
+      uniqueHexes,
+      duplicates,
+      colorDistribution,
+      brightnessLevels,
+      efficiency,
+      balanceScore
+    }
   }, [draft])
 
   // Update draft when palette prop changes (external updates)
@@ -181,7 +250,7 @@ export default function PaletteEditor({
 
     window.addEventListener('keydown', handleKeydown)
     return () => window.removeEventListener('keydown', handleKeydown)
-  }, [historyIndex, history])
+  }, [historyIndex, history, undo, redo])
 
   return (
     <div className="space-y-8 group">
@@ -298,8 +367,14 @@ export default function PaletteEditor({
 
       <Tabs defaultValue="shades" className="w-full">
         <TabsList>
-          <TabsTrigger value="shades">Shades</TabsTrigger>
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
+          <TabsTrigger value="shades" className="flex items-center gap-2">
+            <Layers className="h-4 w-4" />
+            Shades
+          </TabsTrigger>
+          <TabsTrigger value="dashboard" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            Dashboard
+          </TabsTrigger>
           <TabsTrigger value="picker" className="flex items-center gap-2">
             <Droplet className="h-4 w-4" />
             Picker
@@ -308,14 +383,12 @@ export default function PaletteEditor({
 
         <TabsContent value="shades" className="space-y-8">
           <div className="space-y-8">
-            {draft.baseColors.map((baseColor, index) => (
+            {draft.baseColors.map((baseColor) => (
               <BaseColorRow
                 key={baseColor.id}
                 baseColor={baseColor}
-                isFirst={index === 0}
                 totalColors={draft.baseColors.length}
                 colorFormat={colorFormat}
-                onUpdate={(updates) => updateBaseColor(baseColor.id, updates)}
                 onUpdateName={(name) => updateBaseColorName(baseColor.id, name)}
                 onUpdateHex={(hex) => updateBaseColorHex(baseColor.id, hex)}
                 onRemove={() => removeBaseColor(baseColor.id)}
@@ -335,81 +408,231 @@ export default function PaletteEditor({
         </TabsContent>
 
         <TabsContent value="dashboard" className="space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <Card className="shadow-elevated border-0 bg-card/90 backdrop-blur-sm rounded-xl">
-              <CardHeader className="pb-4 border-b">
-                <CardTitle className="text-lg font-semibold">Analysis</CardTitle>
-                <CardDescription>Overview of palette structure and duplicates.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4 pt-4">
-                <div className="grid grid-cols-3 gap-4 text-center">
-                  <div>
-                    <div className="text-2xl font-semibold">{analysis.totalBaseColors}</div>
-                    <div className="text-xs text-muted-foreground">Base colors</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-semibold">{analysis.totalShades}</div>
-                    <div className="text-xs text-muted-foreground">Total shades</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-semibold">{analysis.uniqueHexes}</div>
-                    <div className="text-xs text-muted-foreground">Unique hexes</div>
-                  </div>
-                </div>
-                {analysis.duplicates.length > 0 ? (
-                  <div className="space-y-2">
-                    <div className="text-sm font-medium">Duplicate hex values</div>
-                    <div className="max-h-40 overflow-auto rounded-md border p-2 text-sm">
-                      {analysis.duplicates.map((d) => (
-                        <div key={d.hex} className="py-1">
-                          <div className="font-mono">{d.hex.toUpperCase()} <span className="text-xs text-muted-foreground">×{d.count}</span></div>
-                          <div className="text-xs text-muted-foreground">{d.entries.map(e => `${e.base} ${e.shade}`).join(", ")}</div>
+          {/* Enhanced Dashboard with Dynamic CSS Grid */}
+          <div className="space-y-6">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 auto-rows-auto">
+              {/* Analysis Panel */}
+              <div className="lg:col-span-6">
+                <Card className="h-full flex flex-col">
+                  <CardHeader className="pb-4 border-b flex-shrink-0">
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                      <PaletteIcon className="h-5 w-5 text-primary" />
+                      Analysis
+                    </CardTitle>
+                    <CardDescription>Overview of palette structure and duplicates.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-1">
+                    <div className="space-y-6">
+                      {/* Basic Stats */}
+                      <div className="grid grid-cols-3 gap-4 text-center">
+                        <div>
+                          <div className="text-2xl font-semibold">{analysis.totalBaseColors}</div>
+                          <div className="text-xs text-muted-foreground">Base colors</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-semibold">{analysis.totalShades}</div>
+                          <div className="text-xs text-muted-foreground">Total shades</div>
+                        </div>
+                        <div>
+                          <div className="text-2xl font-semibold">{analysis.uniqueHexes}</div>
+                          <div className="text-xs text-muted-foreground">Unique hexes</div>
+                        </div>
+                      </div>
+
+                      {/* Efficiency & Balance Metrics */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="text-center p-3 rounded-lg bg-muted/30">
+                          <div className="text-lg font-semibold">{analysis.efficiency}%</div>
+                          <div className="text-xs text-muted-foreground">Efficiency</div>
+                          <div className="text-xs text-muted-foreground">(unique/total)</div>
+                        </div>
+                        <div className="text-center p-3 rounded-lg bg-muted/30">
+                          <div className="text-lg font-semibold">{analysis.balanceScore}</div>
+                          <div className="text-xs text-muted-foreground">Balance Score</div>
+                          <div className="text-xs text-muted-foreground">(0-100)</div>
+                        </div>
+                      </div>
+
+                      {/* Color Distribution */}
+                      <div className="space-y-2">
+                        <div className="text-sm font-medium">Shade Distribution</div>
+                        <div className="grid grid-cols-3 gap-2 text-xs">
+                          <div className="text-center p-2 rounded bg-blue-50 dark:bg-blue-950/20">
+                            <div className="font-semibold">{analysis.colorDistribution.light}</div>
+                            <div className="text-muted-foreground">Light</div>
+                          </div>
+                          <div className="text-center p-2 rounded bg-yellow-50 dark:bg-yellow-950/20">
+                            <div className="font-semibold">{analysis.colorDistribution.medium}</div>
+                            <div className="text-muted-foreground">Medium</div>
+                          </div>
+                          <div className="text-center p-2 rounded bg-gray-50 dark:bg-gray-950/20">
+                            <div className="font-semibold">{analysis.colorDistribution.dark}</div>
+                            <div className="text-muted-foreground">Dark</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Brightness Levels */}
+                      <div className="space-y-2">
+                        <div className="text-sm font-medium">Brightness Levels</div>
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs">
+                            <span>Very Light</span>
+                            <span className="font-mono">{analysis.brightnessLevels.veryLight}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span>Light</span>
+                            <span className="font-mono">{analysis.brightnessLevels.light}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span>Medium</span>
+                            <span className="font-mono">{analysis.brightnessLevels.medium}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span>Dark</span>
+                            <span className="font-mono">{analysis.brightnessLevels.dark}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span>Very Dark</span>
+                            <span className="font-mono">{analysis.brightnessLevels.veryDark}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Duplicates Section */}
+                      {analysis.duplicates.length > 0 ? (
+                        <div className="space-y-2">
+                          <div className="text-sm font-medium">Duplicate hex values</div>
+                          <div className="scrollable-content rounded-md border p-2 text-sm max-h-20 overflow-y-auto">
+                            {analysis.duplicates.map((d) => (
+                              <div key={d.hex} className="py-1">
+                                <div className="font-mono">{d.hex.toUpperCase()} <span className="text-xs text-muted-foreground">×{d.count}</span></div>
+                                <div className="text-xs text-muted-foreground">{d.entries.map(e => `${e.base} ${e.shade}`).join(", ")}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground text-center py-2 bg-green-50 dark:bg-green-950/20 rounded">
+                          ✓ No duplicate hex values across shades
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Temperature Panel */}
+              <div className="lg:col-span-6">
+                <Card className="h-full flex flex-col">
+                  <CardHeader className="pb-4 border-b flex-shrink-0">
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                      <Thermometer className="h-5 w-5 text-primary" />
+                      Temperature & Brightness
+                    </CardTitle>
+                    <CardDescription>Color temperature and brightness analysis.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-1">
+                    <TemperaturePanel palette={draft} />
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Psychology Panel */}
+              <div className="lg:col-span-6">
+                <Card className="h-full flex flex-col">
+                  <CardHeader className="pb-4 border-b flex-shrink-0">
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                      <BarChart3 className="h-5 w-5 text-primary" />
+                      Color Psychology
+                    </CardTitle>
+                    <CardDescription>Mood and associations analysis.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-1">
+                    <ColorPsychologyPanel palette={draft} />
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Accessibility Panel */}
+              <div className="lg:col-span-6">
+                <Card className="h-full flex flex-col">
+                  <CardHeader className="pb-4 border-b flex-shrink-0">
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                      <Eye className="h-5 w-5 text-primary" />
+                      Accessibility
+                    </CardTitle>
+                    <CardDescription>WCAG compliance and contrast analysis.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-1">
+                    <AccessibilityPanel palette={draft} />
+                  </CardContent>
+                </Card>
+              </div>
+
+              {/* Quick Edit Panel */}
+              <div className="lg:col-span-3">
+                <Card className="h-full flex flex-col">
+                  <CardHeader className="pb-4 border-b flex-shrink-0">
+                    <CardTitle className="text-lg font-semibold">Quick Edit</CardTitle>
+                    <CardDescription>Rename colors or tweak base hex values.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-1">
+                    <div className="space-y-3">
+                      {draft.baseColors.map((bc) => (
+                        <div key={bc.id} className="grid grid-cols-[160px_1fr] gap-3 items-center">
+                          <Input
+                            value={bc.name}
+                            onChange={(e) => updateBaseColorName(bc.id, e.target.value)}
+                            placeholder="Color name"
+                          />
+                          <div className="flex gap-3 items-center">
+                            <ColorPicker
+                              color={bc.baseHex}
+                              onColorChange={(color) => updateBaseColorHex(bc.id, color)}
+                              size="sm"
+                              showHexInput={false}
+                            />
+                            <Input
+                              value={bc.baseHex}
+                              onChange={(e) => updateBaseColorHex(bc.id, e.target.value)}
+                              placeholder="#000000"
+                              className="flex-1"
+                            />
+                          </div>
                         </div>
                       ))}
                     </div>
-                  </div>
-                ) : (
-                  <div className="text-sm text-muted-foreground">No duplicate hex values across shades.</div>
-                )}
-              </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
+              </div>
 
-            <Card className="shadow-elevated border-0 bg-card/90 backdrop-blur-sm rounded-xl">
-              <CardHeader className="pb-4 border-b">
-                <CardTitle className="text-lg font-semibold">Quick Edit</CardTitle>
-                <CardDescription>Rename colors or tweak base hex values.</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-3 pt-4">
-                {draft.baseColors.map((bc) => (
-                  <div key={bc.id} className="grid grid-cols-[160px_1fr] gap-3 items-center">
-                    <Input
-                      value={bc.name}
-                      onChange={(e) => updateBaseColorName(bc.id, e.target.value)}
-                      placeholder="Color name"
-                    />
-                    <div className="flex gap-3 items-center">
-                      <div
-                        className="w-9 h-8 rounded-md border-2 border-input cursor-pointer"
-                        style={{ background: bc.hex }}
-                        onClick={(e) => {
-                          // Programmatically open the hidden input in BaseColorRow is not trivial here.
-                          // Provide direct text edit instead.
-                        }}
-                        title={bc.hex}
-                      />
-                      <Input
-                        value={bc.hex}
-                        onChange={(e) => updateBaseColorHex(bc.id, e.target.value)}
-                        placeholder="#000000"
-                        className="flex-1"
-                      />
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
+              {/* Mockup Previews */}
+              <div className="lg:col-span-9">
+                <Card className="h-full flex flex-col">
+                  <CardHeader className="pb-4 border-b flex-shrink-0">
+                    <CardTitle className="text-lg font-semibold flex items-center gap-2">
+                      <Monitor className="h-5 w-5 text-primary" />
+                      Live Mockup Previews
+                    </CardTitle>
+                    <CardDescription>See your colors in action across different contexts.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="flex-1">
+                    <MockupPreviews palette={draft} />
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Contrast Tester */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+              <div className="lg:col-span-12">
+                <ContrastTester palette={draft} />
+              </div>
+            </div>
           </div>
 
+          {/* TypeScript Theme Section (existing) */}
           <Card className="shadow-elevated border-0 bg-card/90 backdrop-blur-sm rounded-xl">
             <CardHeader className="pb-4 border-b">
               <CardTitle className="text-lg font-semibold">TypeScript Theme</CardTitle>
@@ -438,12 +661,21 @@ export default function PaletteEditor({
           <EmbeddedPicker
             palette={draft}
             colorFormat={colorFormat}
+            selectedColorId={selectedColorId}
             onColorSelect={(hex) => {
-              // Optional: You could add logic here to update a selected color in the palette
-              // Debug: Selected color
+              // This callback is called when the picker changes the color value
+              // We need to update the selected color's hex value
+              updateSelectedColorHex(hex)
+            }}
+            onColorIdSelect={(colorId) => {
+              // This callback is called when a color is selected from the list
+              // We need to update the selected color ID
+              setSelectedColorId(colorId)
             }}
             onAddColor={(newColor) => {
               commit({ ...draft, baseColors: [...draft.baseColors, newColor] })
+              // Select the newly added color
+              setSelectedColorId(newColor.id)
             }}
             onDeleteColor={(baseColorId) => {
               const updatedBaseColors = draft.baseColors.filter(bc => bc.id !== baseColorId)
@@ -452,6 +684,10 @@ export default function PaletteEditor({
                 return
               }
               commit({ ...draft, baseColors: updatedBaseColors })
+              // If the deleted color was selected, select the first remaining color
+              if (selectedColorId === baseColorId) {
+                setSelectedColorId(updatedBaseColors[0]?.id || "")
+              }
             }}
           />
         </TabsContent>
@@ -462,37 +698,20 @@ export default function PaletteEditor({
 
 function BaseColorRow({
   baseColor,
-  isFirst,
   totalColors,
   colorFormat,
-  onUpdate,
   onUpdateName,
   onUpdateHex,
   onRemove,
 }: {
   baseColor: BaseColor
-  isFirst: boolean
   totalColors: number
   colorFormat: ColorFormat
-  onUpdate: (updates: Partial<BaseColor>) => void
   onUpdateName: (name: string) => void
   onUpdateHex: (hex: string) => void
   onRemove: () => void
 }) {
   const { toast } = useToast()
-  const colorInputRef = React.useRef<HTMLInputElement>(null)
-
-  const handleColorSquareClick = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (colorInputRef.current) {
-      colorInputRef.current.style.position = 'fixed'
-      colorInputRef.current.style.left = `${e.clientX}px`
-      colorInputRef.current.style.top = `${e.clientY}px`
-      colorInputRef.current.style.opacity = '0'
-      colorInputRef.current.style.pointerEvents = 'none'
-      colorInputRef.current.click()
-    }
-  }
 
   const handleShadeClick = (hex: string) => {
     const formattedColor = formatColor(hex, colorFormat)
@@ -532,21 +751,15 @@ function BaseColorRow({
 
             <div className="flex gap-3">
               <div className="relative flex-shrink-0">
-                <div
-                  className="w-12 h-10 rounded-lg border-2 border-input cursor-pointer transition-all duration-200 hover:border-ring"
-                  style={{ background: baseColor.hex }}
-                  onClick={handleColorSquareClick}
-                />
-                <input
-                  ref={colorInputRef}
-                  type="color"
-                  value={baseColor.hex}
-                  onChange={(e) => onUpdateHex(e.target.value)}
-                  className="absolute inset-0 opacity-0 cursor-pointer"
+                <ColorPicker
+                  color={baseColor.baseHex}
+                  onColorChange={onUpdateHex}
+                  size="md"
+                  showHexInput={false}
                 />
               </div>
               <Input
-                value={baseColor.hex}
+                value={baseColor.baseHex}
                 onChange={(e) => onUpdateHex(e.target.value)}
                 placeholder="#000000"
                 className="flex-1 min-w-0"
@@ -558,18 +771,18 @@ function BaseColorRow({
         {/* Shades Section */}
         <div className="flex-1 min-w-0 ml-56 h-full">
           <div className="flex h-full overflow-hidden group/shades [&>*]:border-r [&>*]:border-white/5 last:[&>*]:border-r-0">
-            {SHADE_KEYS.map((shade) => {
-              const hex = baseColor.shades[shade]
-              const shadeIndex = SHADE_KEYS.indexOf(shade)
+            {baseColor.shades.map((shadeObj) => {
+              const hex = shadeObj.hex
+              const shadeIndex = SHADE_KEYS.indexOf(shadeObj.shade.toString() as ShadeKey)
               const isLight = shadeIndex <= 4 // 50, 100, 200, 300, 400 are light
               const textShadeIndex = isLight ? Math.min(shadeIndex + 3, SHADE_KEYS.length - 1) : Math.max(shadeIndex - 3, 0)
-              const textColor = baseColor.shades[SHADE_KEYS[textShadeIndex]]
+              const textColor = baseColor.shades[textShadeIndex]?.hex || hex
 
               return (
                 <div
-                  key={shade}
+                  key={shadeObj.shade}
                   className="flex-1 flex flex-col justify-between hover:flex-[2] transition-shade cursor-pointer group/shade relative"
-                  title={`${baseColor.name} ${shade}`}
+                  title={`${baseColor.name} ${shadeObj.shade}`}
                   onClick={() => handleShadeClick(hex)}
                 >
                   <div
@@ -581,7 +794,7 @@ function BaseColorRow({
                       className="text-md font-mono font-bold"
                       style={{ color: textColor }}
                     >
-                      {shade}
+                      {shadeObj.shade}
                     </span>
                     <span
                       className="text-xs font-mono font-medium"
@@ -597,14 +810,7 @@ function BaseColorRow({
         </div>
       </div>
 
-      {/* Hidden color input for color picker */}
-      <input
-        ref={colorInputRef}
-        type="color"
-        value={baseColor.hex}
-        onChange={(e) => onUpdateHex(e.target.value)}
-        className="hidden"
-      />
+
     </div>
   )
 }

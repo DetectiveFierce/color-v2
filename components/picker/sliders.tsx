@@ -3,7 +3,6 @@
 import { useMemo, useCallback } from "react"
 import { Slider } from "@/components/ui/slider"
 import { Badge } from "@/components/ui/badge"
-import { rgbToHex, rgbToHsl, hslToRgb } from "@/lib/core/color"
 import { wrapHue } from "@/lib/picker/utils"
 
 // Hue slider

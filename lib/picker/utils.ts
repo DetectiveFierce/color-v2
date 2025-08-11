@@ -1,4 +1,4 @@
-import { hexToRgb, rgbToHex, rgbToHsl, hslToRgb, normalizeHex, getContrastText } from "@/lib/core/color"
+import { hexToRgb, rgbToHsl, hslToRgb, rgbToHex } from "@/lib/core/color"
 import type { RGB } from "@/lib/core/types"
 
 export function clamp(n: number, min: number, max: number) {

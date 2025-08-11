@@ -1,8 +1,8 @@
 "use client"
 
-import type { Palette, BaseColor, ShadeKey, CssSource } from "../core/types"
+import type { Palette, BaseColor, ShadeKey } from "../core/types"
 import { SHADE_KEYS } from "../core/types"
-import { parseColorValue, assignShadeByLightness, generateShades, ensureHashHex } from "../core/color"
+import { parseColorValue, assignShadeByLightness, generateShades } from "../core/color"
 
 function slugify(input: string): string {
     return input.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "")
@@ -12,7 +12,7 @@ export function paletteToCssVarsSnippet(p: Palette): string {
     const key = slugify(p.name)
     const vars = p.baseColors.flatMap((baseColor) => {
         const colorKey = slugify(baseColor.name)
-        return SHADE_KEYS.map((k) => `  --${key}-${colorKey}-${k}: ${baseColor.shades[k]};`)
+        return baseColor.shades.map((shade) => `  --${key}-${colorKey}-${shade.shade}: ${shade.hex};`)
     }).join("\n")
 
     return `:root {
@@ -131,7 +131,7 @@ function parseSassVariables(cssContent: string, colorMatches: ColorMatch[]) {
         const [, varName, varValue] = match
 
         // Handle Sass variable references
-        let resolvedValue = varValue.trim()
+        const resolvedValue = varValue.trim()
         if (resolvedValue.startsWith('$')) {
             // This references another variable - we'll resolve it later
             continue
@@ -208,7 +208,7 @@ function parseRuleColors(cssContent: string, colorMatches: ColorMatch[]) {
 
                 const colorValue = parseColorValue(rawValue)
                 if (colorValue) {
-                    const colorName = extractColorNameFromRule(cleanSelector, prop, rawValue)
+                    const colorName = extractColorNameFromRule(cleanSelector, prop)
                     if (colorName) {
                         colorMatches.push({
                             name: colorName,
@@ -276,7 +276,7 @@ function parseCssInJsColors(cssContent: string, colorMatches: ColorMatch[]) {
     }
 }
 
-function extractColorNameFromRule(selector: string, property: string, colorValue: string): string | null {
+function extractColorNameFromRule(selector: string, property: string): string | null {
     // Clean and analyze the selector to extract meaningful color names
     const cleanSelector = selector
         .replace(/[.#:]/g, ' ')
@@ -456,37 +456,46 @@ export function createPaletteFromCss(cssContent: string, name: string, filename?
 
     // Convert to palette format
     const baseColors: BaseColor[] = Object.entries(colors).map(([colorName, shades]) => {
-        const baseColor = {
-            id: crypto.randomUUID(),
-            name: colorName,
-            hex: shades["500"] || Object.values(shades)[0] || "#000000",
-            shades: {} as Record<ShadeKey, string>,
-        }
+        const baseHex = shades["500"] || Object.values(shades)[0] || "#000000"
 
         // If we have shades, use them; otherwise generate them
+        let shadeArray: { shade: number; hex: string }[]
         if (Object.keys(shades).length > 1) {
             // Map existing shades
-            for (const key of SHADE_KEYS) {
-                baseColor.shades[key] = shades[key] || shades["500"] || Object.values(shades)[0]
-            }
+            shadeArray = SHADE_KEYS.map(key => ({
+                shade: parseInt(key),
+                hex: shades[key] || shades["500"] || Object.values(shades)[0]
+            }))
         } else {
-            baseColor.shades = generateShades(baseColor.hex)
+            // Generate shades from base hex
+            const generatedShades = generateShades(baseHex)
+            shadeArray = SHADE_KEYS.map(key => ({
+                shade: parseInt(key),
+                hex: generatedShades[key]
+            }))
         }
 
-        return baseColor
+        return {
+            id: crypto.randomUUID(),
+            name: colorName,
+            baseHex,
+            shades: shadeArray,
+        }
     })
 
     // Create the palette
+    const now = Date.now()
     const palette: Palette = {
         id: crypto.randomUUID(),
         name,
         description: `Imported from ${filename || 'CSS'}`,
         baseColors,
-        updatedAt: Date.now(),
+        createdAt: now,
+        updatedAt: now,
         cssSource: filename ? {
             content: cssContent,
             filename: filename,
-            lastUpdated: Date.now()
+            lastUpdated: now
         } : undefined
     }
 
@@ -528,10 +537,15 @@ function compareBaseColors(oldColors: BaseColor[], newColors: BaseColor[]): bool
 
     return oldColors.some((oldColor, index) => {
         const newColor = newColors[index]
-        // Compare hex values and shades
-        if (oldColor.hex !== newColor.hex) return true
+        // Compare baseHex values and shades
+        if (oldColor.baseHex !== newColor.baseHex) return true
 
-        return SHADE_KEYS.some(key => oldColor.shades[key] !== newColor.shades[key])
+        if (oldColor.shades.length !== newColor.shades.length) return true
+
+        return oldColor.shades.some((oldShade, shadeIndex) => {
+            const newShade = newColor.shades[shadeIndex]
+            return oldShade.hex !== newShade.hex || oldShade.shade !== newShade.shade
+        })
     })
 }
 
@@ -539,9 +553,9 @@ export function updateCssWithPalette(css: string, palette: Palette): string {
     if (!palette.cssSource?.content) return css
 
     for (const baseColor of palette.baseColors) {
-        for (const shade of SHADE_KEYS) {
-            const newHex = baseColor.shades[shade]
-            const originalHex = findOriginalColorForShade(palette.cssSource.content, baseColor.name, shade)
+        for (const shadeObj of baseColor.shades) {
+            const newHex = shadeObj.hex
+            const originalHex = findOriginalColorForShade(palette.cssSource.content, baseColor.name, shadeObj.shade.toString())
 
             if (originalHex) {
                 const pattern = new RegExp(

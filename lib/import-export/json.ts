@@ -1,7 +1,6 @@
 "use client"
 
 import type { Palette } from "../core/types"
-import { SHADE_KEYS } from "../core/types"
 import { ensureHashHex } from "../core/color"
 
 export function palettesToJson(palettes: Palette[]): string {
@@ -11,6 +10,7 @@ export function palettesToJson(palettes: Palette[]): string {
             name: p.name,
             description: p.description || "",
             baseColors: p.baseColors,
+            createdAt: p.createdAt,
             updatedAt: p.updatedAt,
             cssSource: p.cssSource,
         })),
@@ -26,7 +26,7 @@ export function parsePalettesJson(json: string): Palette[] {
         const palette = p as Record<string, unknown>
 
         // Handle both old string format and new object format for cssSource
-        let cssSource: any = undefined
+        let cssSource: { content: string; filename: string; lastUpdated: number } | undefined = undefined
         if (palette.cssSource) {
             if (typeof palette.cssSource === 'string') {
                 // Old format - convert to new format
@@ -54,18 +54,47 @@ export function parsePalettesJson(json: string): Palette[] {
             description: String(palette.description || ""),
             baseColors: Array.isArray(palette.baseColors) ? (palette.baseColors as unknown[]).map((bc: unknown) => {
                 const baseColor = bc as Record<string, unknown>
-                return {
-                    id: (baseColor.id as string) || crypto.randomUUID(),
-                    name: String(baseColor.name || "Color"),
-                    hex: ensureHashHex((baseColor.hex as string) || "#888888"),
-                    shades: Object.fromEntries(SHADE_KEYS.map((k) => [k, ensureHashHex((baseColor.shades as Record<string, string>)?.[k] || "#888888")])),
+
+                // Handle migration from old format to new format
+                if (baseColor.hex && !baseColor.baseHex) {
+                    // Old format - convert to new format
+                    const hex = ensureHashHex((baseColor.hex as string) || "#888888")
+                    const shades = (baseColor.shades as Record<string, string>) || {}
+
+                    return {
+                        id: (baseColor.id as string) || crypto.randomUUID(),
+                        name: String(baseColor.name || "Color"),
+                        baseHex: hex,
+                        shades: Object.entries(shades).map(([key, value]) => ({
+                            shade: parseInt(key),
+                            hex: ensureHashHex(value || hex)
+                        }))
+                    }
+                } else {
+                    // New format - validate and use as is
+                    return {
+                        id: (baseColor.id as string) || crypto.randomUUID(),
+                        name: String(baseColor.name || "Color"),
+                        baseHex: ensureHashHex((baseColor.baseHex as string) || "#888888"),
+                        shades: Array.isArray(baseColor.shades) ? (baseColor.shades as unknown[]).map((shade: unknown) => {
+                            const shadeObj = shade as Record<string, unknown>
+                            return {
+                                shade: Number(shadeObj.shade || 500),
+                                hex: ensureHashHex((shadeObj.hex as string) || "#888888")
+                            }
+                        }) : []
+                    }
                 }
             }) : [{
                 id: crypto.randomUUID(),
                 name: "Primary",
-                hex: ensureHashHex((palette.colors as Record<string, string>)?.["500"] || "#888888"),
-                shades: Object.fromEntries(SHADE_KEYS.map((k) => [k, ensureHashHex((palette.colors as Record<string, string>)?.[k] || "#888888")])),
+                baseHex: ensureHashHex((palette.colors as Record<string, string>)?.["500"] || "#888888"),
+                shades: Object.entries((palette.colors as Record<string, string>) || {}).map(([key, value]) => ({
+                    shade: parseInt(key),
+                    hex: ensureHashHex(value || "#888888")
+                }))
             }],
+            createdAt: Number(palette.createdAt || palette.updatedAt || Date.now()),
             updatedAt: Number(palette.updatedAt || Date.now()),
             cssSource: cssSource,
         }

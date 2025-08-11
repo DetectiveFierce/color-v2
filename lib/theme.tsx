@@ -46,7 +46,7 @@ export function ThemeProvider({
             if (storedTheme && ["dark", "light", "system"].includes(storedTheme)) {
                 setTheme(storedTheme)
             }
-        } catch (e) {
+        } catch {
             // Ignore localStorage errors
         }
     }, [storageKey])
@@ -57,7 +57,7 @@ export function ThemeProvider({
         // Save theme to localStorage
         try {
             localStorage.setItem(storageKey, theme)
-        } catch (e) {
+        } catch {
             // Ignore localStorage errors
         }
 
@@ -72,16 +72,12 @@ export function ThemeProvider({
 
         // Listen for system theme changes
         const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)")
-        const handleChange = () => {
-            if (theme === "system") {
-                const root = document.documentElement
-                root.classList.remove("light", "dark")
-                root.classList.add(getSystemTheme())
-            }
+        const handleSystemChange = () => {
+            setTheme(getSystemTheme())
         }
 
-        mediaQuery.addEventListener("change", handleChange)
-        return () => mediaQuery.removeEventListener("change", handleChange)
+        mediaQuery.addEventListener("change", handleSystemChange)
+        return () => mediaQuery.removeEventListener("change", handleSystemChange)
     }, [theme, mounted])
 
     if (!mounted) {

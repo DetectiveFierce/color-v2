@@ -1,69 +1,59 @@
 "use client"
 
-import type { Palette, BaseColor } from "./types"
+import type { Palette, BaseColor, Shade } from "./types"
+import { SHADE_KEYS } from "./types"
 import { generateShades, generateRandomColor } from "./color"
 
 export function createEmptyPalette(name: string = "New Palette"): Palette {
+    const now = Date.now()
+    const baseColor = createBaseColor("Primary", "#14b8a6")
+
     return {
         id: crypto.randomUUID(),
         name,
         description: "",
-        baseColors: [
-            {
-                id: crypto.randomUUID(),
-                name: "Primary",
-                hex: "#14b8a6",
-                shades: generateShades("#14b8a6"),
-            }
-        ],
-        updatedAt: Date.now(),
+        baseColors: [baseColor],
+        createdAt: now,
+        updatedAt: now,
     }
 }
 
 export function createPaletteWithRandomColor(name: string = "New Palette"): Palette {
+    const now = Date.now()
     const randomColor = generateRandomColor()
+    const baseColor = createBaseColor("Primary", randomColor)
+
     return {
         id: crypto.randomUUID(),
         name,
         description: "",
-        baseColors: [
-            {
-                id: crypto.randomUUID(),
-                name: "Primary",
-                hex: randomColor,
-                shades: generateShades(randomColor),
-            }
-        ],
-        updatedAt: Date.now(),
+        baseColors: [baseColor],
+        createdAt: now,
+        updatedAt: now,
     }
 }
 
 export function defaultStarterPalettes(): Palette[] {
+    const now = Date.now()
+
     return [
         {
             id: crypto.randomUUID(),
             name: "Brand & Marketing",
             description: "Combined brand and marketing palette",
             baseColors: [
-                {
-                    id: crypto.randomUUID(),
-                    name: "Brand",
-                    hex: "#7c3aed",
-                    shades: generateShades("#7c3aed"),
-                },
-                {
-                    id: crypto.randomUUID(),
-                    name: "Marketing",
-                    hex: "#ef4444",
-                    shades: generateShades("#ef4444"),
-                }
+                createBaseColor("Brand", "#7c3aed"),
+                createBaseColor("Marketing", "#ef4444"),
             ],
-            updatedAt: Date.now(),
+            createdAt: now,
+            updatedAt: now,
         },
     ]
 }
 
 export function duplicatePalette(palette: Palette, newName?: string): Palette {
+    const now = Date.now()
+
     return {
         ...palette,
         id: crypto.randomUUID(),
@@ -72,18 +62,14 @@ export function duplicatePalette(palette: Palette, newName?: string): Palette {
             ...color,
             id: crypto.randomUUID()
         })),
-        updatedAt: Date.now(),
+        createdAt: now,
+        updatedAt: now,
     }
 }
 
 export function addBaseColorToPalette(palette: Palette): Palette {
     const randomColor = generateRandomColor()
-    const newColor: BaseColor = {
-        id: crypto.randomUUID(),
-        name: `Color ${palette.baseColors.length + 1}`,
-        hex: randomColor,
-        shades: generateShades(randomColor),
-    }
+    const newColor = createBaseColor(`Color ${palette.baseColors.length + 1}`, randomColor)
 
     return {
         ...palette,
@@ -110,9 +96,9 @@ export function updateBaseColorInPalette(
         baseColors: palette.baseColors.map(color => {
             if (color.id === colorId) {
                 const updated = { ...color, ...updates }
-                // Regenerate shades if hex changed
-                if (updates.hex && updates.hex !== color.hex) {
-                    updated.shades = generateShades(updates.hex)
+                // Regenerate shades if baseHex changed
+                if (updates.baseHex && updates.baseHex !== color.baseHex) {
+                    updated.shades = createShadesFromHex(updates.baseHex)
                 }
                 return updated
             }
@@ -131,4 +117,29 @@ export function updatePaletteMeta(
         ...updates,
         updatedAt: Date.now(),
     }
+}
+
+// Helper function to create a BaseColor with the new structure
+export function createBaseColor(name: string, baseHex: string): BaseColor {
+    const oldShades = generateShades(baseHex)
+    const shades: Shade[] = SHADE_KEYS.map(key => ({
+        shade: parseInt(key),
+        hex: oldShades[key]
+    }))
+
+    return {
+        id: crypto.randomUUID(),
+        name,
+        baseHex,
+        shades
+    }
+}
+
+// Helper function to create shades array from hex
+export function createShadesFromHex(baseHex: string): Shade[] {
+    const oldShades = generateShades(baseHex)
+    return SHADE_KEYS.map(key => ({
+        shade: parseInt(key),
+        hex: oldShades[key]
+    }))
 } 

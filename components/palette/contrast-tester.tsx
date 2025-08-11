@@ -2,22 +2,42 @@
 
 import { useState, useMemo } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { contrastRatio, swatchStyle } from "@/lib/picker/utils"
+import { ColorSelectMenu } from "@/components/ui/color-select-menu"
+import { contrastRatio } from "@/lib/picker/utils"
+import { type Palette, type BaseColor } from "@/lib/core/types"
 
 type ContrastTesterProps = {
-    baseHex: string
+    palette: Palette
 }
 
-export function ContrastTester({ baseHex }: ContrastTesterProps) {
-    const [bgTest, setBgTest] = useState<string>("#ffffff")
+export function ContrastTester({ palette }: ContrastTesterProps) {
+    const [foregroundColor, setForegroundColor] = useState<string>(palette.baseColors[0]?.baseHex || "#000000")
+    const [backgroundColor, setBackgroundColor] = useState<string>("#ffffff")
 
-    const ratio = useMemo(() => contrastRatio(baseHex, bgTest), [baseHex, bgTest])
+    const ratio = useMemo(() => contrastRatio(foregroundColor, backgroundColor), [foregroundColor, backgroundColor])
     const ratioText = ratio.toFixed(2)
     const aaNormal = ratio >= 4.5
     const aaLarge = ratio >= 3
     const aaaNormal = ratio >= 7
+
+    // Create a combined array of all colors from the palette for selection
+    const allColors: BaseColor[] = [
+        ...palette.baseColors,
+        // Add some common background colors
+        { id: "white", name: "White", baseHex: "#ffffff", shades: [] },
+        { id: "black", name: "Black", baseHex: "#000000", shades: [] },
+        { id: "gray-50", name: "Gray 50", baseHex: "#f9fafb", shades: [] },
+        { id: "gray-100", name: "Gray 100", baseHex: "#f3f4f6", shades: [] },
+        { id: "gray-200", name: "Gray 200", baseHex: "#e5e7eb", shades: [] },
+        { id: "gray-300", name: "Gray 300", baseHex: "#d1d5db", shades: [] },
+        { id: "gray-400", name: "Gray 400", baseHex: "#9ca3af", shades: [] },
+        { id: "gray-500", name: "Gray 500", baseHex: "#6b7280", shades: [] },
+        { id: "gray-600", name: "Gray 600", baseHex: "#4b5563", shades: [] },
+        { id: "gray-700", name: "Gray 700", baseHex: "#374151", shades: [] },
+        { id: "gray-800", name: "Gray 800", baseHex: "#1f2937", shades: [] },
+        { id: "gray-900", name: "Gray 900", baseHex: "#111827", shades: [] },
+    ]
 
     return (
         <Card className="shadow-elevated border-0 bg-card/90 backdrop-blur-sm rounded-xl">
@@ -28,38 +48,21 @@ export function ContrastTester({ baseHex }: ContrastTesterProps) {
                 <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                         <div className="text-sm font-medium">Foreground</div>
-                        <div className="flex gap-2">
-                            <div
-                                className="h-12 w-12 rounded-lg border-2 border-input shadow-subtle"
-                                style={swatchStyle(baseHex)}
-                            />
-                            <Input
-                                value={baseHex}
-                                readOnly
-                                className="flex-1"
-                            />
-                        </div>
+                        <ColorSelectMenu
+                            value={foregroundColor}
+                            onValueChange={setForegroundColor}
+                            colors={allColors}
+                            placeholder="Select foreground color"
+                        />
                     </div>
                     <div className="space-y-2">
                         <div className="text-sm font-medium">Background</div>
-                        <div className="flex gap-2">
-                            <div
-                                className="h-12 w-12 rounded-lg border-2 border-input shadow-subtle cursor-pointer"
-                                style={swatchStyle(bgTest)}
-                                onClick={() => {
-                                    const input = document.createElement('input')
-                                    input.type = 'color'
-                                    input.value = bgTest
-                                    input.onchange = (e) => setBgTest((e.target as HTMLInputElement).value)
-                                    input.click()
-                                }}
-                            />
-                            <Input
-                                value={bgTest}
-                                onChange={(e) => setBgTest(e.target.value)}
-                                className="flex-1"
-                            />
-                        </div>
+                        <ColorSelectMenu
+                            value={backgroundColor}
+                            onValueChange={setBackgroundColor}
+                            colors={allColors}
+                            placeholder="Select background color"
+                        />
                     </div>
                 </div>
 
@@ -96,17 +99,17 @@ export function ContrastTester({ baseHex }: ContrastTesterProps) {
 
                 <div
                     className="p-4 rounded-lg border-2 border-input"
-                    style={{ backgroundColor: bgTest }}
+                    style={{ backgroundColor: backgroundColor }}
                 >
                     <div
                         className="text-lg font-semibold"
-                        style={{ color: baseHex }}
+                        style={{ color: foregroundColor }}
                     >
                         Sample Text
                     </div>
                     <div
                         className="text-sm mt-2"
-                        style={{ color: baseHex }}
+                        style={{ color: foregroundColor }}
                     >
                         This is how your text will look with the selected colors.
                     </div>

@@ -15,8 +15,11 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Color Editor",
+  title: "Huegolplex",
   description: "A color palette editor for managing design tokens",
+  icons: {
+    icon: "/color.svg",
+  },
 };
 
 export default function RootLayout({

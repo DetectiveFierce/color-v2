@@ -4,7 +4,8 @@ import type { RGB, HSL, ShadeKey } from "./types"
 import { SHADE_KEYS } from "./types"
 
 // Color validation and normalization
-export function ensureHashHex(hex: string): string {
+export function ensureHashHex(hex: string | undefined | null): string {
+    if (!hex) return "#000000"
     let h = hex.trim()
     if (!h.startsWith("#")) h = `#${h}`
     if (h.length === 4) {
@@ -14,7 +15,7 @@ export function ensureHashHex(hex: string): string {
     return h.toLowerCase()
 }
 
-export function normalizeHex(hex: string): string {
+export function normalizeHex(hex: string | undefined | null): string {
     const h = ensureHashHex(hex)
     return h.slice(0, 7)
 }
@@ -183,7 +184,6 @@ export function generateShades(baseHex: string): Record<ShadeKey, string> {
     // For mid-tone colors, create a gradient that places the base color in its natural position
     else {
         // Calculate the position of the base color in the gradient
-        const baseIndex = SHADE_KEYS.indexOf(baseShadeKey)
         const targetLight = standardLightness[baseShadeKey]
         const lightDiff = baseLight - targetLight
 

@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils"
 import { Copy, Droplet, MoreHorizontal, Pencil, X, Plus } from "lucide-react"
 import { hexToRgb, rgbToHsl, hslToRgb, rgbToHex } from "@/lib/core/color"
 import type { Palette, BaseColor } from "@/lib/core/types"
+import { SHADE_KEYS } from "@/lib/core/types"
 import { useToast } from "@/hooks/use-toast"
 
 // Function to get lighter/darker shade of the same color for text
@@ -24,17 +25,19 @@ function getContrastTextColor(hex: string): string {
         return l > 50 ? '#000000' : '#ffffff'
     }
 
-    // Medium grey threshold (around 50% lightness)
-    const mediumGreyThreshold = 50
-
+    // For bright/neon colors (high saturation), use darker text for better readability
+    // High saturation colors need darker text regardless of lightness
     let textLightness: number
 
-    if (l > mediumGreyThreshold) {
+    if (s > 80) {
+        // For very saturated colors (like neon), always use darker text
+        textLightness = Math.max(15, l - 50)
+    } else if (l > 50) {
         // Light background - use darker shade of the same color
-        textLightness = Math.max(25, l - 40)
+        textLightness = Math.max(20, l - 45)
     } else {
         // Dark background - use lighter shade of the same color
-        textLightness = Math.min(75, l + 40)
+        textLightness = Math.min(80, l + 45)
     }
 
     // Ensure we don't lose too much saturation for better color visibility
@@ -46,25 +49,26 @@ function getContrastTextColor(hex: string): string {
 
 type ColorListProps = {
     palette: Palette
-    selectedHex: string
-    onColorSelect: (hex: string) => void
+    selectedColorId?: string
+    onColorSelect: (colorId: string) => void
     onAddColor?: (color: BaseColor) => void
     onDeleteColor?: (colorSource: string) => void
 }
 
-export function ColorList({ palette, selectedHex, onColorSelect, onAddColor, onDeleteColor }: ColorListProps) {
+export function ColorList({ palette, selectedColorId, onColorSelect, onAddColor, onDeleteColor }: ColorListProps) {
     const { toast } = useToast()
     const [editingId, setEditingId] = useState<string>("")
     const [draftName, setDraftName] = useState<string>("")
 
     // Generate all colors from the palette for the scrollable list - memoized for performance
     const allColors = useMemo(() => {
-        const colors: Array<{ hex: string; name: string; source: string }> = []
+        const colors: Array<{ id: string; hex: string; name: string; source: string }> = []
 
         palette.baseColors.forEach(baseColor => {
             // Only add base colors to the list
             colors.push({
-                hex: baseColor.hex,
+                id: baseColor.id,
+                hex: baseColor.baseHex,
                 name: baseColor.name,
                 source: `${baseColor.name} (base)`
             })
@@ -160,20 +164,19 @@ export function ColorList({ palette, selectedHex, onColorSelect, onAddColor, onD
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0 flex-1 overflow-hidden">
-                    <div className="palette-scroll-container overflow-y-auto" style={{ height: 'calc(215vh)' }}>
+                    <div className="palette-scroll-container overflow-y-auto max-h-[calc(100vh-200px)]">
                         <div className="grid grid-cols-1 gap-1 p-4">
                             {allColors.map((color, index) => {
-                                const textColor = getContrastTextColor(color.hex)
-
+                                const isSelected = selectedColorId === color.id
                                 return (
                                     <div
                                         key={`${color.source}-${index}`}
                                         className={cn(
                                             "color-list-item relative h-16 rounded-lg border border-transparent hover:border-input transition-all duration-200 text-left overflow-hidden hover:bg-transparent cursor-pointer",
-                                            selectedHex === color.hex ? "p-[2px] selected" : ""
+                                            isSelected ? "p-[2px] selected" : ""
                                         )}
                                         onClick={() => {
-                                            onColorSelect(color.hex)
+                                            onColorSelect(color.id)
                                         }}
                                         role="button"
                                         tabIndex={0}
@@ -184,7 +187,7 @@ export function ColorList({ palette, selectedHex, onColorSelect, onAddColor, onD
                                             }
                                         }}
                                     >
-                                        {selectedHex === color.hex && (
+                                        {isSelected && (
                                             <div
                                                 className="absolute inset-0 rounded-lg pointer-events-none opacity-0"
                                                 style={{
@@ -197,14 +200,14 @@ export function ColorList({ palette, selectedHex, onColorSelect, onAddColor, onD
                                         <div
                                             className={cn(
                                                 "color-bg absolute left-0 top-0 bottom-0 right-0 w-16 transition-all duration-200",
-                                                selectedHex === color.hex ? "left-[2px] top-[2px] bottom-[2px] w-[64px] rounded-l-md rounded-r-md" : ""
+                                                isSelected ? "left-[2px] top-[2px] bottom-[2px] w-[64px] rounded-l-md rounded-r-md" : ""
                                             )}
                                             style={{ background: color.hex }}
                                         />
                                         {/* Right portion - theme background */}
                                         <div className={cn(
                                             "theme-bg absolute left-16 right-0 top-0 bottom-0 bg-card transition-all duration-200",
-                                            selectedHex === color.hex ? "left-[62px] right-[2px] top-[2px] bottom-[2px] rounded-r-md" : ""
+                                            isSelected ? "left-[62px] right-[2px] top-[2px] bottom-[2px] rounded-r-md" : ""
                                         )} />
                                         <div className="relative flex items-center h-full p-3 z-10">
                                             <div className="text-content min-w-0 flex-1 ml-16 transition-all duration-200">
@@ -217,7 +220,7 @@ export function ColorList({ palette, selectedHex, onColorSelect, onAddColor, onD
                                                         }}
                                                     >
                                                         <Input
-                                                            size={1 as any}
+                                                            size={1}
                                                             value={draftName}
                                                             autoFocus
                                                             onChange={(e) => setDraftName(e.target.value)}
@@ -337,28 +340,20 @@ export function ColorList({ palette, selectedHex, onColorSelect, onAddColor, onD
                                     className="w-full h-full opacity-0 group-hover/add-button:opacity-100 transition-all duration-300 text-muted-foreground hover:text-foreground border-2 border-dashed border-muted-foreground/20 hover:border-muted-foreground/40 rounded-lg"
                                     onClick={() => {
                                         if (onAddColor) {
+                                            const selectedColor = palette.baseColors.find(c => c.id === selectedColorId)
                                             const newColor = {
                                                 id: crypto.randomUUID(),
                                                 name: `Color ${palette.baseColors.length + 1}`,
-                                                hex: selectedHex,
-                                                shades: {
-                                                    "50": selectedHex,
-                                                    "100": selectedHex,
-                                                    "200": selectedHex,
-                                                    "300": selectedHex,
-                                                    "400": selectedHex,
-                                                    "500": selectedHex,
-                                                    "600": selectedHex,
-                                                    "700": selectedHex,
-                                                    "800": selectedHex,
-                                                    "900": selectedHex,
-                                                    "950": selectedHex,
-                                                },
+                                                baseHex: selectedColor?.baseHex || "#4f46e5",
+                                                shades: SHADE_KEYS.map(key => ({
+                                                    shade: parseInt(key),
+                                                    hex: selectedColor?.baseHex || "#4f46e5"
+                                                }))
                                             }
                                             onAddColor(newColor)
                                             toast({
                                                 title: "Color added",
-                                                description: `Added ${selectedHex.toUpperCase()} to palette`,
+                                                description: `Added ${selectedColor?.baseHex.toUpperCase() || "#4F46E5"} to palette`,
                                             })
                                         } else {
                                             toast({
