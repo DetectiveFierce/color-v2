@@ -183,7 +183,7 @@ export function ColorList({ palette, selectedColorId, onColorSelect, onAddColor,
                                         onKeyDown={(e) => {
                                             if (e.key === 'Enter' || e.key === ' ') {
                                                 e.preventDefault()
-                                                onColorSelect(color.hex)
+                                                onColorSelect(color.id)
                                             }
                                         }}
                                     >

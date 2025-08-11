@@ -12,7 +12,7 @@ import PaletteListSection from "@/components/layout/palette-list-section"
 import PaletteEditorSection from "@/components/layout/palette-editor-section"
 import type { ColorFormat } from "@/components/shared/format-selector"
 
-export default function DashboardPage() {
+export default function ShadesPage() {
   const { toast } = useToast()
   const [exportOpen, setExportOpen] = useState<boolean>(false)
   const [mobileNavOpen, setMobileNavOpen] = useState<boolean>(false)
@@ -44,8 +44,6 @@ export default function DashboardPage() {
     const q = query.toLowerCase()
     return palettes.filter((p) => p.name.toLowerCase().includes(q) || (p.description || "").toLowerCase().includes(q))
   }, [palettes, query])
-
-
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-background via-background to-muted/20 relative overflow-hidden bg-smooth">
@@ -125,7 +123,7 @@ export default function DashboardPage() {
           }
         } : undefined}
         onAddPalette={addPalette}
-        viewMode="dashboard"
+        viewMode="shades"
       />
 
       <ExportDialog
