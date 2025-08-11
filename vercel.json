@@ -1,0 +1,15 @@
+{
+    "buildCommand": "pnpm run build",
+    "outputDirectory": ".next",
+    "framework": "nextjs",
+    "installCommand": "pnpm install",
+    "devCommand": "pnpm run dev",
+    "regions": [
+        "iad1"
+    ],
+    "functions": {
+        "app/**/*.tsx": {
+            "maxDuration": 30
+        }
+    }
+}

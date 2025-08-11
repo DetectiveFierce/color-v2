@@ -44,7 +44,6 @@ export default function PickerPage() {
                         h={h}
                         s={s}
                         v={v}
-                        onHexChange={() => { }}
                         onHexInput={handleHexInput}
                         onHueChange={updateFromHue}
                         onSvChange={updateFromSv}

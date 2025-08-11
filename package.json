@@ -2,11 +2,15 @@
   "name": "color-editor",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "preview": "next start"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.14",
